@@ -1,0 +1,17 @@
+target/
+**/target/
+.git/
+.gitignore
+.dockerignore
+docker-compose*.yml
+*.md
+# SoftHSM token state, PINs and other secrets must never enter the build context
+tokens/
+**/tokens/
+softhsm*/
+secrets/
+*.pin
+*.pem
+*.key
+bench-results/
+.env

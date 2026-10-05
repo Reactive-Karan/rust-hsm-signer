@@ -1,0 +1,10 @@
+/target
+# SoftHSM token directories, PIN files and other local secrets
+tokens/
+softhsm*/
+secrets/
+*.pin
+*.key
+.env
+# local scratch output
+*.log

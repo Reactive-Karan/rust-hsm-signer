@@ -1,0 +1,58 @@
+# Test environment: the service with SoftHSM2 inside the container and the
+# token persisted on a named volume.
+#
+#   docker compose up -d --build            # build + start (first start inits token & keys)
+#   curl -s localhost:8080/readyz
+#   docker compose run --rm loadgen         # load test from a second container
+#   docker compose down -v                  # stop and delete the token volume
+#
+# PINs: by default the entrypoint generates random user/SO PINs on first start
+# and stores them (0600) on the volume. To supply your own via Docker secrets,
+# uncomment the `secrets` blocks below and create the two files.
+services:
+  hsm-signer:
+    build: .
+    image: hsm-signer:latest
+    ports:
+      - "${HSM_SIGNER_PORT:-8080}:8080"
+    environment:
+      HSM_TOKEN_LABEL: arkion
+      HSM_POOL_SIZE: ${HSM_POOL_SIZE:-8}
+      HSM_MAX_WAITERS: ${HSM_MAX_WAITERS:-128}
+      HSM_ACQUIRE_TIMEOUT_MS: ${HSM_ACQUIRE_TIMEOUT_MS:-250}
+      RUST_LOG: ${RUST_LOG:-info}
+      # OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      # HSM_PIN_FILE: /run/secrets/hsm_user_pin
+      # HSM_SO_PIN_FILE: /run/secrets/hsm_so_pin
+    # secrets: [hsm_user_pin, hsm_so_pin]
+    volumes:
+      - hsm-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    cpus: ${SIGNER_CPUS:-4}
+    restart: unless-stopped
+
+  loadgen:
+    image: hsm-signer:latest
+    profiles: [bench]
+    depends_on:
+      hsm-signer:
+        condition: service_healthy
+    entrypoint: ["loadgen"]
+    command: ["--url", "http://hsm-signer:8080", "--concurrency", "1,10,100,500", "--duration", "15"]
+    cpus: ${LOADGEN_CPUS:-4}
+    ulimits:
+      nofile: 65536
+
+volumes:
+  hsm-data:
+
+# secrets:
+#   hsm_user_pin:
+#     file: ./secrets/hsm_user_pin
+#   hsm_so_pin:
+#     file: ./secrets/hsm_so_pin

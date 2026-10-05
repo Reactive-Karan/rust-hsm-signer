@@ -1,0 +1,77 @@
+[package]
+name = "hsm-signer"
+version = "0.1.0"
+edition = "2024"
+description = "HSM-backed signing and key-management service (PKCS#11 / SoftHSM2)"
+license = "MIT OR Apache-2.0"
+publish = false
+default-run = "hsm-signer"
+
+[features]
+default = ["otel"]
+# OTLP trace export. Spans are always produced via `tracing`; this feature only
+# adds the exporter, which is activated at runtime by OTEL_EXPORTER_OTLP_ENDPOINT.
+otel = [
+    "dep:opentelemetry",
+    "dep:opentelemetry_sdk",
+    "dep:opentelemetry-otlp",
+    "dep:tracing-opentelemetry",
+]
+
+[dependencies]
+anyhow = "1"
+async-trait = "0.1"
+axum = { version = "0.8", features = ["macros"] }
+base64 = "0.22"
+clap = { version = "4", features = ["derive", "env"] }
+cryptoki = "0.12"
+getrandom = "0.3"
+prometheus = { version = "0.14", default-features = false }
+secrecy = "0.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time", "sync", "net"] }
+tower = { version = "0.5", features = ["util", "limit", "load-shed", "timeout"] }
+tower-http = { version = "0.6", features = ["trace", "request-id", "timeout", "limit", "util"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
+tracing-appender = "0.2"
+rand_core = { version = "0.6", features = ["getrandom"] }
+uuid = { version = "1", features = ["v4"] }
+zeroize = "1"
+
+# Software public-key cryptography: SPKI encoding of exported public keys,
+# software signature verification and the in-memory mock backend.
+p256 = { version = "0.13", features = ["ecdsa", "pem", "pkcs8"] }
+ed25519-dalek = { version = "2", features = ["pkcs8", "pem"] }
+rsa = { version = "0.9", features = ["sha2", "pem"] }
+aes-gcm = "0.10"
+
+# Load generator (src/bin/loadgen.rs)
+reqwest = { version = "0.13", default-features = false, features = ["json"] }
+hdrhistogram = "7"
+bytes = "1"
+
+# Optional OpenTelemetry export
+opentelemetry = { version = "0.33", optional = true }
+opentelemetry_sdk = { version = "0.33", optional = true, features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.33", optional = true, default-features = false, features = ["trace", "http-proto", "reqwest-blocking-client"] }
+tracing-opentelemetry = { version = "0.34", optional = true }
+
+[dev-dependencies]
+tempfile = "3"
+http-body-util = "0.1"
+libloading = "0.8"
+
+# RSA key generation in the mock backend is unbearably slow unoptimized.
+[profile.dev.package.num-bigint-dig]
+opt-level = 3
+
+[profile.dev.package.rsa]
+opt-level = 3
+
+[profile.release]
+codegen-units = 1
+lto = "thin"

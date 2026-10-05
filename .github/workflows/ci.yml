@@ -1,0 +1,29 @@
+name: ci
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      PKCS11_MODULE: /usr/lib/softhsm/libsofthsm2.so
+      HSM_TESTS_REQUIRED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - run: sudo apt-get update && sudo apt-get install -y softhsm2
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo clippy --all-targets --locked --no-default-features -- -D warnings
+      - run: cargo test --locked
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --target test .
+      - run: docker build --target smoke --build-arg BENCH_DURATION=2 .
+      - run: docker build -t hsm-signer:ci .
